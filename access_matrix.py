@@ -88,6 +88,39 @@ def gen_matrix():
                 Matrix[u][r] = s
             #print "*** " + u + " " + obj_num2name(r) + ": " + " ".join(Matrix[u][r])
 
+def check_acess(u, r, c):
+    if c in Matrix[u][r] or 'full' in Matrix[u][r]:
+        return True
+    else:
+        return False
+
+def process_user_command(u):
+    sys.stdout.write(u"Жду ваших указаний")
+    c = raw_input(" > ")
+    c = c.rstrip()
+    if c == 'read' or c == 'write':
+        sys.stdout.write(u"Над каким объектом производится операция")
+        r = raw_input("? ")
+        if r == "":
+            print u"Объект не выбран"
+            return True
+        r = int(r)
+        if check_acess(u, r, c):
+            print u"Операция прошла успешно"
+        else:
+            print u"Отказ в выполнении операции. У Вас нет прав для ее осуществления"
+        return True
+    elif c == 'grant':
+        print "XXX not implemented"
+        return True
+    elif c == "":
+        return True
+    elif c == 'quit':
+        return False
+    else:
+        print u"Задана недопустимая операция"
+        return True
+
 def print_matrix():
     for u in (Cfg['users']):
         for r in (Matrix[u].keys()):
@@ -108,6 +141,9 @@ def user_login():
         return
     print u"Идентификация прошла успешно, добро пожаловать в систему"
     print_user_rights(name)
+    while process_user_command(name):
+        1
+        
 
 
 parser = argparse.ArgumentParser(description=u'Матрица доступа к ресурсам (дискреционная модель)')
