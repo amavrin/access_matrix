@@ -93,12 +93,35 @@ def gen_matrix():
                 Matrix[u][r] = s
             #print "*** " + u + " " + obj_num2name(r) + ": " + " ".join(Matrix[u][r])
 
+def get_user(message):
+    sys.stdout.write(message)
+    u = raw_input(" ")
+    if u == "":
+        print u"Пользователь не выбран"
+        return ""
+
+    return u
+
+def get_access_name(message):
+    sys.stdout.write(message)
+    x = raw_input(" ")
+    if x == "":
+        print u"Право не выбрано"
+        return ""
+
+    if x not in ('read', 'write'):
+        print u"Доступные права для передачи: read, write"
+        return ""
+
+    return x
+
+
 def get_resource_num(message):
     sys.stdout.write(message)
     r = raw_input(" ")
     if r == "":
         print u"Объект не выбран"
-        return True
+        return 0
 
     try:
         r = int(r)
@@ -108,18 +131,56 @@ def get_resource_num(message):
 
     return r
 
-def process_grant(u, r):
-    r = get_resource_num(u"Право на какой объект передается?")
-    if r == 0:
-        raise Exception(u"не получен номер объекта для передачи прав")
+def process_grant(u, r, x):
+    if r not in range(1,Cfg['resno'] + 1):
+        print u"ресурс не определён, введите число от 1 до " + str(Cfg['resno'])
+        return False
+
+    if u not in Cfg['users']:
+        print u"пользователь " + u + u" не зарегистрирован в системе"
+        return False
+
+    if x not in ('read', 'write'):
+        print u"Можно передавать права только на чтение или запись"
+        return False
+
+    Matrix[u][r].add(x)
+    return True
+
+def check_grant(u, r, u2, x):
+    if x not in ('read', 'write'):
+        print u"Можно передавать права только на чтение или запись"
+        return False
+
+    if u not in Cfg['users']:
+        print u"пользователь " + u + u", передающий права, не зарегистрирован в системе"
+        return False
+
+    if u2 not in Cfg['users']:
+        print u"пользователь " + u2 + u", которому передаются права, не зарегистрирован в системе"
+        return False
+
+    # пользователь, передающий права, должен иметь право grant и передаваемое право на объект
+    if 'grant' in Matrix[u][r] and x in Matrix[u][r]:
+        print u"Операция прошла успешно"
+        return True
+    else:
+        print u"Отказ в выполнении операции передачи прав. У Вас нет прав для ее осуществления"
+        return False
 
 def check_access(u, r, c):
     if r not in range(1,Cfg['resno'] + 1):
-        raise Exception(u"ресурс не определён, введите число от 1 до " + str(Cfg['resno']))
+        print u"ресурс не определён, введите число от 1 до " + str(Cfg['resno'])
+        return False
+
+    if u not in Cfg['users']:
+        print u"пользователь " + u + u" не зарегистрирован в системе"
+        return False
 
     if c in Matrix[u][r]:
         return True
     else:
+        print u"Отказ в выполнении операции. У Вас нет прав для ее осуществления"
         return False
 
 def print_matrix():
@@ -130,8 +191,6 @@ def print_matrix():
 def process_user_command(u):
     sys.stdout.write(u"Жду ваших указаний")
 
-    r = 0
-
     try:
         c = raw_input(" > ")
     except:
@@ -140,31 +199,51 @@ def process_user_command(u):
         c = "quit"
 
     c = c.rstrip()
+
     if c == 'read' or c == 'write':
         r = get_resource_num(u"Над каким объектом производится операция?")
-
-    elif c == "":
-        return True
-    elif c == 'quit':
-        print u"Работа пользователя " + u + u" завершена. До свидания."
-        return False
-    elif c == 'matrix' and Cfg['matrix_cmd'] == "on":
-        print_matrix()
-        return True
-    else:
-        print u"Задана недопустимая операция"
-        return True
-
-    try:
+        if r == 0:
+            return "CONTUNUE"
         if check_access(u, r, c):
             print u"Операция прошла успешно"
-        else:
-            print u"Отказ в выполнении операции. У Вас нет прав для ее осуществления"
-    except Exception as e:
-        m, = e.args
-        sys.stdout.write(u" *** ошибка проверки прав доступа: ")
-        print m.encode("utf-8")
-    return True
+        return "CONTUNUE"
+
+    elif c == 'grant':
+        r = get_resource_num(u"Право на какой объект передается?")
+        if r == 0:
+            return "CONTUNUE"
+
+        if not check_access(u, r, c):
+            return "CONTUNUE"
+
+        x = get_access_name(u"Какое право передается?")
+        if x == "":
+            return "CONTUNUE"
+
+        if not check_access(u, r, x):
+            return "CONTUNUE"
+
+        u2 = get_user(u"Какому пользователю передается право?")
+        if u2 == "":
+            return "CONTUNUE"
+        
+        if check_grant(u, r, u2, x):
+            process_grant(u2, r, x)
+        return "CONTUNUE"
+
+    elif c == "":
+        return "CONTUNUE"
+
+    elif c == 'quit':
+        print u"Работа пользователя " + u + u" завершена. До свидания."
+        return "QUIT"
+
+    elif c == 'matrix' and Cfg['matrix_cmd'] == "on":
+        print_matrix()
+        return "CONTUNUE"
+    else:
+        print u"Задана недопустимая операция"
+        return "CONTUNUE"
 
 def print_user_rights(u):
     print u"Перечень Ваших прав:"
@@ -181,7 +260,7 @@ def user_login():
         return
     print u"Идентификация прошла успешно, добро пожаловать в систему"
     print_user_rights(name)
-    while process_user_command(name):
+    while process_user_command(name) != "QUIT":
         1
         
 
